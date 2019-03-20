@@ -1,8 +1,6 @@
 import numpy as np
 import cv2
 from sklearn.cluster import DBSCAN
-import sys
-
 
 # function for trackbar
 def nothing(x):
@@ -12,6 +10,14 @@ def nothing(x):
 distance = lambda i, j: np.linalg.norm(i-j)
 vect_dist = np.vectorize(distance)
 
+def check_for_maxhull(point, max_hull,measure):
+    for index in range(len(max_hull)-1):
+        if per_distance(max_hull[index],max_hull[index+1],point) < measure:
+            return False
+    return True
+
+def per_distance(lp1, lp2, p):
+    return np.linalg.norm(np.cross(lp2-lp1, lp1-p))/np.linalg.norm(lp2-lp1)
 
 # find max and min in the sequence of point
 def peakdet(v, delta, x=None):
@@ -20,12 +26,6 @@ def peakdet(v, delta, x=None):
     if x is None:
         x = np.arange(len(v))
     v = np.asarray(v)
-    if len(v) != len(x):
-        sys.exit('Input vectors v and x must have same length')
-    if not np.isscalar(delta):
-        sys.exit('Input argument delta must be a scalar')
-    if delta <= 0:
-        sys.exit('Input argument delta must be positive')
     mn, mx = np.Inf, -np.Inf
     mnpos, mxpos = np.NaN, np.NaN
     lookformax = True
@@ -67,17 +67,25 @@ def get_angle(p1, p2, p3):
 def find_nearest(means, roots, image):
     means = sorted(means,key=lambda x:x[0])
     roots = sorted(roots,key=lambda x:x[0])
-    diff = len(means)-len(roots)
-    if diff > 1:
-        for i in range(diff-1):
-            roots.append(roots[-1])
+
     means = np.array(means)
     roots = np.array(roots)
+    n = len(means)-len(roots)
+    if n > 1:
+        for _ in range(n-1):
+	        roots = np.vstack([roots,roots[-1]])
+    #print(len(means)-len(roots))
+    count_finger = 0
     for i in range(len(means)-1):
-        angle = get_angle(roots[i],means[i],means[i+1])
-        if angle > 10 and angle < 90:
-            cv2.line(image, tuple(roots[i]), tuple(means[i+1]), (0,255,0),4)
-            cv2.line(image, tuple(roots[i]), tuple(means[i]), (0,255,0),4)
+        angle = get_angle(roots[count_finger],means[i],means[i+1])
+        if (angle > 10 and angle <  80) and distance(roots[count_finger], means[i+1]) > 70 and distance(roots[count_finger], means[i])>70 and \
+            (means[i+1][1] < roots[count_finger][1] and means[i][1] < roots[count_finger][1]):
+            cv2.line(image, tuple(roots[count_finger]), tuple(means[i+1]), (0,255,0),4)
+            cv2.line(image, tuple(roots[count_finger]), tuple(means[i]), (0,255,0),4)
+            count_finger += 1
+
+    if count_finger >= 1 and count_finger <= 5:
+        cv2.putText(frame, str(count_finger+1),(0,50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,255), 3, cv2.LINE_AA)
 
 # Create trackbars for adjust hsv ranges
 """
@@ -107,21 +115,28 @@ while True:
 
     # Color ranges for human skin
     # (very sensitive from brightness  and often need to adjust)
-    lower = np.array([0, 0, 150])
-    upper = np.array([255, 100, 255])
+    lower = np.array([0, 0, 140])
+    upper = np.array([255, 90, 255])
     mask = cv2.GaussianBlur(hsv, (5, 5), 100)
     mask = cv2.inRange(mask, lower, upper)
+
 
     # Find max contours of mask
     contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     if contours == []:
         continue
     max_contour = max(contours, key=lambda x: cv2.contourArea(x))
+    # try:
+    #     max_contour = max(contours, key=lambda x: cv2.contourArea(x))
+    # except ValueError:
+    #     print("Don't find max contour yet, maybe list of countour are empty")
+    #     continue
+
     cnt = contours[0]  # delete excess dim for list
     max_hull = cv2.convexHull(max_contour)
 
     # Approximate area of hand
-    epsilon = 0.01*cv2.arcLength(max_contour, True)
+    epsilon = 0.005*cv2.arcLength(max_contour, True)
     approx = cv2.approxPolyDP(max_contour, epsilon, True)
 
 
@@ -140,15 +155,38 @@ while True:
     cy += (delta * 2)  # little shift center to downside
     cv2.circle(frame, (int(cx), int(cy)), 10, (255, 0, 255), 1)
 
-    final = cv2.drawContours(frame, max_hull, -1, (255, 0, 0), 3)
-    final = cv2.drawContours(frame, approx, -1, (0,0,0),5)
+    #final = cv2.drawContours(frame, max_hull, -1, (255, 0, 0), 3)
+    #final = cv2.drawContours(frame, approx, -1, (0,0,0),5)
+
+    # find local min (points between fingers)
+    # also remove points which close to max_hull
+    data = np.array(np.squeeze(approx,axis=1))[:,1]
+    indexes, _ = peakdet(data,.2)
+    if indexes.size > 0:
+        real_points = []
+        corner_points = np.take(np.array(np.squeeze(approx,axis=1)), indexes[:,0],axis=0)
+        for point in corner_points:
+            if check_for_maxhull(point,max_hull,20) is True and point[1]<cy:
+                cv2.circle(frame, tuple(point), 5, (0, 255, 255),-1)
+                real_points.append(tuple(point))
+    else:
+        cv2.putText(frame, 'None',(0,50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,255), 3, cv2.LINE_AA)
+        continue
+
 
     # For points on the top of fingers find nearest neighborhouds
     # join them into cluster and find mean of each
+
+
+    if real_points==[]:
+        continue
+    min_root = min(real_points,key=lambda x:x[1])[1]
+
     means = []
-    max_hull_top = np.array([i[0] for i in max_hull if i[0][1] < cy])
+    # points on the edge of point never be smallest than root_points
+    max_hull_top = np.array([i[0] for i in max_hull if i[0][1] < min_root])
     if max_hull.shape[2] == 2:
-        clustering = DBSCAN(eps=14, min_samples=1).fit(max_hull_top)
+        clustering = DBSCAN(eps=16, min_samples=1).fit(max_hull_top)
         labels = clustering.labels_
         means = []
         for i in np.unique(labels):
@@ -160,20 +198,13 @@ while True:
                 if array != []:
                     ax, ay = tuple(np.squeeze(np.mean(np.array(array), axis=0)))
                     cv2.circle(frame, (int(ax), int(ay)), 10, (0, 0, 255), 1)
+                    means.append((int(ax),int(ay)))
 
-    # find local min (points between fingers)
-    # also remove points which close to max_hull
-    data = np.array(np.squeeze(approx,axis=1))[:,1]
-    indexes, _ = peakdet(data,.2)
-    if indexes.size > 0:
-        points = np.take(np.array(np.squeeze(approx,axis=1)), indexes[:,0],axis=0)
-        for i in points:
-            distances = np.sqrt(np.sum(vect_dist(np.squeeze(max_hull,axis=1), i)**2, axis=1))
-            if (distances > 10).all() == True:
-                cv2.circle(frame, tuple(i), 10, (0,255,255),-1)
 
-        #if list(points) and means and len(means) > len(points):
-        #    find_nearest(means, points, frame)
+
+    if list(real_points) and means and len(means) >= len(real_points):
+            find_nearest(means, real_points, frame)
+
     # cv2.putText(frame, str(len(np.unique(labels))),(0,50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,255), 3, cv2.LINE_AA)
 
     cv2.imshow('image', mask)

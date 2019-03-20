@@ -10,17 +10,49 @@ def nothing(x):
 distance = lambda i, j: np.linalg.norm(i-j)
 vect_dist = np.vectorize(distance)
 
-def check_for_maxhull(point, max_hull,measure):
+def check_for_maxhull(point, max_hull, measure):
+    """
+    Check if point are near to max_hull contour (not only point)
+
+    Arguments:
+    point -- numpy array of int with shape (2,) (point)
+    max_hull -- numpy array with shape (n, 1, 2) (desribe contour)
+    measure -- how far away from max_hull point need to be
+
+    Returns:
+    bool result of check
+    """
     for index in range(len(max_hull)-1):
         if per_distance(max_hull[index],max_hull[index+1],point) < measure:
             return False
     return True
 
 def per_distance(lp1, lp2, p):
+    """
+    Compute distance from two point line to one point
+
+    Arguments:
+    lp1 -- first point of line, numpy array of int with shape (2,)
+    lp2 -- second point of line, numpy array of int with shape (2,)
+    p -- third point outside line, numpy array of int with shape (2,)
+
+    Returns:
+    distance
+    """
     return np.linalg.norm(np.cross(lp2-lp1, lp1-p))/np.linalg.norm(lp2-lp1)
 
 # find max and min in the sequence of point
 def peakdet(v, delta, x=None):
+    """
+    Finds the local maxima and minima ("peaks") in the vector V
+
+    Arguments:
+    v -- array of shape (n,2)
+    delta -- measure for define observed range for local min or max
+
+    Returns:
+
+    """
     maxtab = []
     mintab = []
     if x is None:
@@ -53,8 +85,18 @@ def peakdet(v, delta, x=None):
     return np.array(maxtab), np.array(mintab)
 
 
-# angle between three points
 def get_angle(p1, p2, p3):
+    """
+    Find angle between three points
+
+    Arguments:
+    p1 -- first (base) point, numpy array of int with shape (2,)
+    p2 -- second point, numpy array of int with shape (2,)
+    p3 -- third point , numpy array of int with shape (2,)
+
+    Return:
+    angle
+    """
     line1 = p2 - p1
     line2 = p3 - p1
     cosine = np.dot(line1, line2) / (np.linalg.norm(line1) * np.linalg.norm(line2))
@@ -74,7 +116,7 @@ def find_nearest(means, roots, image):
     if n > 1:
         for _ in range(n-1):
 	        roots = np.vstack([roots,roots[-1]])
-    #print(len(means)-len(roots))
+
     count_finger = 0
     for i in range(len(means)-1):
         angle = get_angle(roots[count_finger],means[i],means[i+1])

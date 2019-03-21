@@ -14,10 +14,10 @@ python finger_detect_video.py
 ```
 
 ## Results
-![screen](home/hrychaniuk/codes/count-fingers/res1.png)
+![screen](res1.png)
 
 ## Useful links for me
-* [[sa-cybernhand-tracking-and-recognition-with-opencv][1]]
+
 * [gist.github.com/endolith](https://gist.github.com/endolith/250860)
 * [opencv tutorial](https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_tutorials.html)
-[1]: http://sa-cybernetics.github.io/blog/2013/08/12/hand-tracking-and-recognition-with-opencv "sa-cybernetics.github.io/blog/2013/08/12/hand-tracking-and-recognition-with-opencv"
+* [1]: http://sa-cybernetics.github.io/blog/2013/08/12/hand-tracking-and-recognition-with-opencv "sa-cybernetics.github.io/blog/2013/08/12/hand-tracking-and-recognition-with-opencv"

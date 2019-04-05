@@ -232,11 +232,8 @@ while True:
         labels = clustering.labels_
         means = []
         for i in np.unique(labels):
-            if i >= 0 and np.count_nonzero(labels == i) >= 2:
-                array = []
-                for num, j in enumerate(labels):
-                    if j == i:
-                        array.append(max_hull_top[num])
+            if i >= 0 and np.count_nonzero(labels == i) >= 2:          
+                array = [max_hull[num] for num, j in enumerate(labels) if j == i]
                 if array != []:
                     ax, ay = tuple(np.squeeze(np.mean(np.array(array), axis=0)))
                     cv2.circle(frame, (int(ax), int(ay)), 10, (0, 0, 255), 1)
